@@ -1,0 +1,33 @@
+version: '3.8'
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - SA_PASSWORD=StrongPassword123!
+      - ACCEPT_EULA=Y
+    ports:
+      - "1433:1433"
+
+  initdb:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - sqlserver
+    environment:
+      SA_PASSWORD: 'StrongPassword123!'
+    volumes:
+      - ./init.sql:/init.sql
+    entrypoint: /bin/bash -c "sleep 30 && /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'StrongPassword123!' -i /init.sql -C"
+
+  web:
+    image: python:3.10-slim
+    volumes:
+      - ./app.py:/app/app.py
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    ports:
+      - "5000:5000"
+    command: >
+      bash -c "pip install -r requirements.txt && python app.py"
+    depends_on:
+      - sqlserver
