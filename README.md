@@ -6,7 +6,7 @@
 
 ## Architecture setup
 Everything is easier with docker, so a docker-compose.yml is used to setup the architecture stack
-```
+```yml
 version: '3.8'
 
 services:
@@ -48,7 +48,7 @@ services:
 - Microservice is embedded in a python docker image, so it is easier to get drivers to interact with SQL Server. (Too many config with Mac OS even if possible)
 
 init.sql
-```
+```sql
 -- init.sql
 IF NOT EXISTS (SELECT name FROM sys.databases WHERE name = N'BookingDB')
 BEGIN
@@ -76,7 +76,7 @@ Too easy :)
 Even if DDD is a good pattern, here I want to simplify as possible Rest API to be minimalistic. See **app.py**  
 
 These are the libs used in requirements.txt
-```
+```k
 Flask==2.2.3
 Flask-SQLAlchemy==3.0.2
 pymssql==2.2.5
@@ -152,7 +152,7 @@ Go to Datadog UI to check all metrics collected !
 ### Docker installation and configuration reminder
 
 Docker installation commands
-```
+```bash
 sudo apt update
 sudo apt upgrade
 sudo apt install apt-transport-https ca-certificates curl software-properties-common
@@ -244,7 +244,75 @@ Seems to be finished at thi point, go to Datadog UI and
 - Try Live Tail
 - Execute API resources to see the logs collected
 
-Enjoy
+### APM Activation
+
+Edit **datadog.yml** (I use **vim**) and uncomment these properties to obtain :
+```
+apm_config:
+  apm_non_local_traffic:true
+```
+In order to take effect, restart datadog agent service : 
+```
+sudo systemctl restart datadog-agent
+```
+
+Now we must declare **ddtrace** in **requirements.txt** to activate Datadog APM. Just uncomment the line.
+
+For a first test, we don't use Dockerfile but configure **docker-compose.yml** (specifically the MicroPython service named web) - Just uncomment the related line : 
+
+``` yml
+# Version of docker-compose without Dockerfile usage
+# To configure APM uncomment related section and replace command: by the other one
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-latest
+    environment:
+      - SA_PASSWORD=StrongPassword123!
+      - ACCEPT_EULA=Y
+    ports:
+      - "1433:1433"
+
+  initdb:
+    image: mcr.microsoft.com/mssql-tools
+    depends_on:
+      - sqlserver
+    environment:
+      SA_PASSWORD: 'StrongPassword123!'
+    volumes:
+      - ./init.sql:/init.sql
+    entrypoint: /bin/bash -c "sleep 30 && /opt/mssql-tools/bin/sqlcmd -S sqlserver -U sa -P 'StrongPassword123!' -i /init.sql -C"
+
+  web:
+    image: python:3.10-slim
+    volumes:
+      - ./app.py:/app/app.py
+      - ./requirements.txt:/app/requirements.txt
+    working_dir: /app
+    # environment:
+    #   - ENV DD_SERVICE="bookings"
+    #   - ENV DD_ENV="agent-host-staging"
+    #   - ENV DD_VERSION="0.1.0"
+    #   - DD_AGENT_HOST=host.docker.internal
+    # labels:
+    #   - com.datadoghq.tags.service="bookings"
+    #   - com.datadoghq.tags.env="agent-host-staging"
+    #   - com.datadoghq.tags.version="0.1.0"
+    ports:
+      - "5050:5000"
+    command: >
+      bash -c "pip install -r requirements.txt && python app.py"
+    #command: [ "bash", "-c", "pip install -r requirements.txt && ddtrace-run python app.py" ]
+    depends_on:
+      - sqlserver
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
+
+```
+Then
+```
+sudo docker-compose up
+```
 
 ## Useful commands
 ```

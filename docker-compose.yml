@@ -1,4 +1,5 @@
-version: '3.8'
+# Version of docker-compose without Dockerfile usage
+# To configure APM uncomment related section and replace command: by the other one
 
 services:
   sqlserver:
@@ -25,9 +26,21 @@ services:
       - ./app.py:/app/app.py
       - ./requirements.txt:/app/requirements.txt
     working_dir: /app
+    # environment:
+    #   - ENV DD_SERVICE="bookings"
+    #   - ENV DD_ENV="agent-host-staging"
+    #   - ENV DD_VERSION="0.1.0"
+    #   - DD_AGENT_HOST=host.docker.internal
+    # labels:
+    #   - com.datadoghq.tags.service="bookings"
+    #   - com.datadoghq.tags.env="agent-host-staging"
+    #   - com.datadoghq.tags.version="0.1.0"
     ports:
-      - "5000:5000"
+      - "5050:5000"
     command: >
       bash -c "pip install -r requirements.txt && python app.py"
+    #command: [ "bash", "-c", "pip install -r requirements.txt && ddtrace-run python app.py" ]
     depends_on:
       - sqlserver
+    # extra_hosts:
+    #   - "host.docker.internal:host-gateway"
